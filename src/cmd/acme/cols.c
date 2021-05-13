@@ -412,7 +412,7 @@ colgrow(Column *c, Window *w, int but)
 			r.max.y += 1 + nl[j]*v->body.fr.font->height;
 		r.min.y = winresize(v, r, c->safe, FALSE);
 		r.max.y = r.min.y + Border;
-		draw(screen, r, display->black, nil, ZP);
+		draw(screen, r, winbordercol, nil, ZP);
 		y1 = r.max.y;
 	}
 	/* scan to see new size of everyone below */
