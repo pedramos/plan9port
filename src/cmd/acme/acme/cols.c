@@ -149,10 +149,7 @@ coladd(Column *c, Window *w, Window *clone, int y)
 
 	savemouse(w);
 	/* near the button, but in the body */
-	/* don't move the mouse to the new window if a mouse button is depressed */
-	if(!mousectl->m.buttons)
-		moveto(mousectl, addpt(w->tag.scrollr.max, Pt(3, 3)));
-
+	moveto(mousectl, addpt(w->tag.scrollr.max, Pt(3, 3)));
 	barttext = &w->body;
 	return w;
 }
@@ -411,8 +408,8 @@ colgrow(Column *c, Window *w, int but)
 		if(nl[j])
 			r.max.y += 1 + nl[j]*v->body.fr.font->height;
 		r.min.y = winresize(v, r, c->safe, FALSE);
-		r.max.y = r.min.y + Border;
-		draw(screen, r, display->black, nil, ZP);
+		r.max.y += Border;
+		draw(screen, r, winbordercol, nil, ZP);
 		y1 = r.max.y;
 	}
 	/* scan to see new size of everyone below */

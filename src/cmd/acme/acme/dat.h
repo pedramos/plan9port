@@ -28,7 +28,7 @@ enum
 enum
 {
 	Blockincr =	256,
-	Maxblock = 	32*1024,
+	Maxblock = 	8*1024,
 	NRange =		10,
 	Infinity = 		0x7FFFFFFF	/* huge value for regexp address */
 };
@@ -556,6 +556,12 @@ int			messagesize;		/* negotiated in 9P version setup */
 int			globalautoindent;
 int			dodollarsigns;
 char*		mtpt;
+
+enum
+{
+	Kscrolloneup		= KF|0x20,
+	Kscrollonedown	= KF|0x21
+};
 
 Channel	*cplumb;		/* chan(Plumbmsg*) */
 Channel	*cwait;		/* chan(Waitmsg) */
