@@ -1511,8 +1511,8 @@ rpc_getsnarf(void)
 	XWindow xw;
 	Xwin *w;
 
-	qlock(&clip.lk);
 	xlock();
+	qlock(&clip.lk);
 	w = _x.windows;
 	/*
 	 * Have we snarfed recently and the X server hasn't caught up?
@@ -1556,8 +1556,8 @@ rpc_getsnarf(void)
 	}
 
 out:
-	xunlock();
 	qunlock(&clip.lk);
+	xunlock();
 	return (char*)data;
 }
 
@@ -1569,8 +1569,8 @@ __xputsnarf(char *data)
 
 	if(strlen(data) >= SnarfSize)
 		return;
-	qlock(&clip.lk);
 	xlock();
+	qlock(&clip.lk);
 	w = _x.windows;
 	strcpy(clip.buf, data);
 	/* leave note for mouse proc to assert selection ownership */
@@ -1584,8 +1584,8 @@ __xputsnarf(char *data)
 	e.button = ~0;
 	XSendEvent(_x.display, w->drawable, True, ButtonPressMask, (XEvent*)&e);
 	XFlush(_x.display);
-	xunlock();
 	qunlock(&clip.lk);
+	xunlock();
 }
 
 static int
