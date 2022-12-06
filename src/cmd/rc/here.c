@@ -2,91 +2,103 @@
 #include "exec.h"
 #include "io.h"
 #include "fns.h"
-
-void psubst(io*, unsigned char*);
+struct here *here, **ehere;
+int ser = 0;
+char tmp[]="/tmp/here0000.0000";
+char hex[]="0123456789abcdef";
+void psubst(io*, char*);
 void pstrs(io*, word*);
 
-static char*
-readhere1(tree *tag, io *in)
+void
+hexnum(char *p, int n)
 {
-	io *out;
-	char c, *m;
-
-	pprompt();
-	out = openiostr();
-	m = tag->str;
-	while((c = rchr(in)) != EOF){
-		if(c=='\0'){
-			yyerror("NUL bytes in here doc");
-			closeio(out);
-			return 0;
-		}
-		if(c=='\n'){
-			lex->line++;
-			if(m && *m=='\0'){
-				out->bufp -= m - tag->str;
-				*out->bufp='\0';
-				break;
-			}
-			pprompt();
-			m = tag->str;
-		} else if(m){
-			if(*m == c){
-				m++;
-			} else {
-				m = 0;
-			}
-		}
-		pchr(out, c);
-	}
-	doprompt = 1;
-	return closeiostr(out);
+	*p++=hex[(n>>12)&0xF];
+	*p++=hex[(n>>8)&0xF];
+	*p++=hex[(n>>4)&0xF];
+	*p = hex[n&0xF];
 }
-
-static tree *head, *tail;
 
 tree*
-heredoc(tree *redir)
+heredoc(tree *tag)
 {
-	if(redir->child[0]->type!=WORD){
+	struct here *h = new(struct here);
+	if(tag->type!=WORD)
 		yyerror("Bad here tag");
-		return nil;
-	}
-	redir->child[2]=0;
-	if(head)
-		tail->child[2]=redir;
+	h->next = 0;
+	if(here)
+		*ehere = h;
 	else
-		head=redir;
-	tail=redir;
-    return tail;
+		here = h;
+	ehere=&h->next;
+	h->tag = tag;
+	hexnum(&tmp[9], getpid());
+	hexnum(&tmp[14], ser++);
+	h->name = strdup(tmp);
+	return token(tmp, WORD);
 }
+/*
+ * bug: lines longer than NLINE get split -- this can cause spurious
+ * missubstitution, or a misrecognized EOF marker.
+ */
+#define	NLINE	4096
 
 void
-readhere(io *in)
+readhere(void)
 {
-	while(head){
-		tail=head->child[2];
-		head->child[2]=0;
-		head->str=readhere1(head->child[0], in);
-		head=tail;
+	struct here *h, *nexth;
+	io *f;
+	char *s, *tag;
+	int c, subst;
+	char line[NLINE+1];
+	for(h = here;h;h = nexth){
+		subst=!h->tag->quoted;
+		tag = h->tag->str;
+		c = Creat(h->name);
+		if(c<0)
+			yyerror("can't create here document");
+		f = openfd(c);
+		s = line;
+		pprompt();
+		while((c = rchr(runq->cmdfd))!=EOF){
+			if(c=='\n' || s==&line[NLINE]){
+				*s='\0';
+				if(tag && strcmp(line, tag)==0) break;
+				if(subst)
+					psubst(f, line);
+				else pstr(f, line);
+				s = line;
+				if(c=='\n'){
+					pprompt();
+					pchr(f, c);
+				}
+				else *s++=c;
+			}
+			else *s++=c;
+		}
+		flush(f);
+		closeio(f);
+		cleanhere(h->name);
+		nexth = h->next;
+		efree((char *)h);
 	}
+	here = 0;
+	doprompt = 1;
 }
 
 void
-psubst(io *f, unsigned char *s)
+psubst(io *f, char *s)
 {
-	unsigned char *t, *u;
-	word *star;
+	char *t, *u;
 	int savec, n;
-
+	word *star;
 	while(*s){
 		if(*s!='$'){
-			if(0xa0 <= *s && *s <= 0xf5){
+			if(0xa0<=(*s&0xff) && (*s&0xff)<=0xf5){
 				pchr(f, *s++);
 				if(*s=='\0')
 					break;
 			}
-			else if(0xf6 <= *s && *s <= 0xf7){
+			else if(0xf6<=(*s&0xff) && (*s&0xff)<=0xf7){
 				pchr(f, *s++);
 				if(*s=='\0')
 					break;
@@ -114,7 +126,7 @@ psubst(io *f, unsigned char *s)
 					}
 				}
 				else
-					pstrs(f, vlook((char *)s)->val);
+					pstrs(f, vlook(s)->val);
 				*t = savec;
 				if(savec=='^')
 					t++;

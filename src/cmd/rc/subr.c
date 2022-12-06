@@ -1,46 +1,50 @@
 #include "rc.h"
+#include "exec.h"
 #include "io.h"
 #include "fns.h"
 
-void *
+char*
 emalloc(long n)
 {
-	void *p = malloc(n);
+	char *p = (char *)Malloc(n);
 	if(p==0)
 		panic("Can't malloc %d bytes", n);
+/*	if(err){ pfmt(err, "malloc %d->%p\n", n, p); flush(err); } /**/
+	memset(p, 0, n);
 	return p;
-}
-
-void*
-erealloc(void *p, long n)
-{
-	p = realloc(p, n);
-	if(p==0 && n!=0)
-		panic("Can't realloc %d bytes\n", n);
-	return p;
-}
-
-char*
-estrdup(char *s)
-{
-	int n = strlen(s)+1;
-	char *d = emalloc(n);
-	memmove(d, s, n);
-	return d;
 }
 
 void
-pfln(io *fd, char *file, int line)
+efree(char *p)
 {
-	if(file && line)
-		pfmt(fd, "%s:%d", file, line);
-	else if(file)
-		pstr(fd, file);
-	else
-		pstr(fd, argv0);
+/*	pfmt(err, "free %p\n", p); flush(err); /**/
+	if(p)
+		free(p);
+	else pfmt(err, "free 0\n");
 }
+extern int lastword, lastdol;
 
-static char *bp;
+void
+yyerror(char *m)
+{
+	pfmt(err, "rc: ");
+	if(runq->cmdfile && !runq->iflag)
+		pfmt(err, "%s:%d: ", runq->cmdfile, runq->lineno);
+	else if(runq->cmdfile)
+		pfmt(err, "%s: ", runq->cmdfile);
+	else if(!runq->iflag)
+		pfmt(err, "line %d: ", runq->lineno);
+	if(tok[0] && tok[0]!='\n')
+		pfmt(err, "token %q: ", tok);
+	pfmt(err, "%s\n", m);
+	flush(err);
+	lastword = 0;
+	lastdol = 0;
+	while(lastc!='\n' && lastc!=EOF) advance();
+	nerror++;
+	setvar("status", newword(m, (word *)0));
+}
+char *bp;
 
 static void
 iacvt(int n)
@@ -55,7 +59,7 @@ iacvt(int n)
 }
 
 void
-inttoascii(char *s, int n)
+inttoascii(char *s, long n)
 {
 	bp = s;
 	iacvt(n);
@@ -65,10 +69,9 @@ inttoascii(char *s, int n)
 void
 panic(char *s, int n)
 {
-	pfmt(err, "%s: ", argv0);
+	pfmt(err, "rc: ");
 	pfmt(err, s, n);
 	pchr(err, '\n');
-	flushio(err);
-
+	flush(err);
 	Abort();
 }

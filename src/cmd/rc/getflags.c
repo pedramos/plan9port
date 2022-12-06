@@ -1,8 +1,11 @@
+/*% cyntax -DTEST % && cc -DTEST -go # %
+ */
 #include "rc.h"
 #include "getflags.h"
 #include "fns.h"
 char *flagset[] = {"<flag>"};
 char **flag[NFLAG];
+char cmdline[NCMDLINE+1];
 char *cmdname;
 static char *flagarg="";
 static void reverse(char**, char**);
@@ -20,16 +23,24 @@ static int badflag;
 int
 getflags(int argc, char *argv[], char *flags, int stop)
 {
-	char *s;
+	char *s, *t;
 	int i, j, c, count;
 	flagarg = flags;
 	if(cmdname==0)
 		cmdname = argv[0];
-
+	s = cmdline;
+	for(i = 0;i!=argc;i++){
+		for(t = argv[i];*t;t++)
+			if(s!=&cmdline[NCMDLINE])
+				*s++=*t;
+		if(i!=argc-1 && s!=&cmdline[NCMDLINE])
+			*s++=' ';
+	}
+	*s='\0';
 	i = 1;
 	while(i!=argc){
-		if(argv[i][0] != '-' || argv[i][1] == '\0'){
-			if(stop)		/* always true in rc */
+		if(argv[i][0]!='-' || argv[i][1]=='\0'){
+			if(stop)
 				return argc;
 			i++;
 			continue;
@@ -205,8 +216,7 @@ usage(char *tail)
 		errs(tail);
 	}
 	errs("\n");
-	setstatus("bad flags");
-	Exit();
+	Exit("bad flags");
 }
 
 static void
