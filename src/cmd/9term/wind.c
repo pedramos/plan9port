@@ -12,7 +12,7 @@
 #include <complete.h>
 #include "dat.h"
 #include "fns.h"
-
+#include <stdio.h>
 #define MOVEIT if(0)
 
 enum
@@ -40,6 +40,16 @@ wscale(Window *w, int n)
 {
 	if(w == nil || w->i == nil)
 		return n;
+	
+	char *senv;
+	senv = getenv("9scale");
+	
+	if(senv) {
+		double s;
+		s = atof(senv);
+		free(senv);
+		return s * scalesize(w->i->display, n);
+	}
 	return scalesize(w->i->display, n);
 }
 
