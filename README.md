@@ -36,8 +36,7 @@ for details on using Git.
 
 Status
 ------
-
-[![builds.sr.ht status](https://builds.sr.ht/~garcia/9frontport.svg)](https://builds.sr.ht/~garcia/9frontport?)
+[![Github Actions Build Status](https://github.com/9fans/plan9port/actions/workflows/actions.yaml/badge.svg)](https://github.com/9fans/plan9port/actions/workflows/actions.yaml)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/plan-9-from-user-space/badge.svg)](https://scan.coverity.com/projects/plan-9-from-user-space)
 
 
