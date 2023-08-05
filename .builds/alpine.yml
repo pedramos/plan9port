@@ -1,0 +1,7 @@
+image: alpine/edge
+sources:
+- https://git.sr.ht/~garcia/9frontport
+tasks:
+- build: |
+    cd 9frontport/
+    ./INSTALL
