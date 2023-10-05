@@ -41,6 +41,7 @@ writef(File *f)
 		f->qidpath = qid;
 		f->mtime = mtime;
 		warn_S(Wdate, &genstr);
+		free(name);
 		return;
 	}
 	if(genc)
@@ -49,8 +50,10 @@ writef(File *f)
 	if((io=create(genc, 1, 0666L)) < 0)
 		error_r(Ecreate, genc);
 	dprint("%s: ", genc);
-	if(statfd(io, 0, 0, 0, &length, &appendonly) > 0 && appendonly && length>0)
+	if(statfd(io, 0, 0, 0, &length, &appendonly) > 0 && appendonly && length>0){
+		free(name);
 		error(Eappend);
+	}
 	n = writeio(f);
 	if(f->name.s[0]==0 || samename){
 		if(addr.r.p1==0 && addr.r.p2==f->b.nc)
@@ -70,6 +73,7 @@ writef(File *f)
 			checkqid(f);
 		}
 	}
+	free(name);
 }
 
 Posn
@@ -166,7 +170,7 @@ writeio(File *f)
 void
 closeio(Posn p)
 {
-	Close(io);
+	close(io);
 	io = 0;
 	if(p >= 0)
 		dprint("#%lud\n", p);
@@ -186,8 +190,9 @@ bootterm(char *machine, char **argv)
 		close(remotefd0);
 		close(remotefd1);
 		argv[0] = "samterm";
-		execvp(samterm, argv);
-		fprint(2, "can't exec %s: %r\n", samterm);
+		exec(samterm, argv);
+		fprint(2, "can't exec: ");
+		perror(samterm);
 		_exits("damn");
 	}
 	if(pipe(ph2t)==-1 || pipe(pt2h)==-1)
@@ -201,7 +206,7 @@ bootterm(char *machine, char **argv)
 		close(pt2h[0]);
 		close(pt2h[1]);
 		argv[0] = "samterm";
-		execvp(samterm, argv);
+		exec(samterm, argv);
 		fprint(2, "can't exec: ");
 		perror(samterm);
 		_exits("damn");
@@ -222,8 +227,8 @@ connectto(char *machine, char **argv)
 	int p1[2], p2[2];
 	char **av;
 	int ac;
-
-	/* count args */
+	
+	// count args
 	for(av = argv; *av; av++)
 		;
 	av = malloc(sizeof(char*)*((av-argv) + 5));
@@ -253,7 +258,7 @@ connectto(char *machine, char **argv)
 		close(p1[1]);
 		close(p2[0]);
 		close(p2[1]);
-		execvp(RXPATH, av);
+		exec(RXPATH, av);
 		dprint("can't exec %s\n", RXPATH);
 		exits("exec");
 

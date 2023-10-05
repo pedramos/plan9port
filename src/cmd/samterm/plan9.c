@@ -1,9 +1,4 @@
 #include <u.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <errno.h>
-
-#include <u.h>
 #include <libc.h>
 #include <draw.h>
 #include <thread.h>
@@ -11,24 +6,20 @@
 #include <cursor.h>
 #include <keyboard.h>
 #include <frame.h>
-#define Tversion Tversion9p
-#define Twrite Twrite9p
-#include <fcall.h>
-#undef Tversion
-#undef Twrite
-#include <9pclient.h>
 #include <plumb.h>
 #include "flayer.h"
 #include "samterm.h"
 
-static char *exname;
+enum {
+	STACK = 4096,
+};
 
-#define STACK 16384
+static char exname[64];
 
 void
 usage(void)
 {
-	fprint(2, "usage: samterm -a -W winsize\n");
+	fprint(2, "usage: samterm [-ai]\n");
 	threadexitsall("usage");
 }
 
@@ -41,8 +32,8 @@ getscreen(int argc, char **argv)
 	case 'a':
 		autoindent = 1;
 		break;
-	case 'W':
-		winsize = EARGF(usage());
+	case 'i':
+		spacesindent = 1;
 		break;
 	default:
 		usage();
@@ -53,10 +44,9 @@ getscreen(int argc, char **argv)
 		threadexitsall("init");
 	}
 	t = getenv("tabstop");
-	if(t != nil){
+	if(t != nil)
 		maxtab = strtoul(t, nil, 0);
-		free(t);
-	}
+	free(t);
 	draw(screen, screen->clipr, display->white, nil, ZP);
 }
 
@@ -118,18 +108,17 @@ void
 extproc(void *argv)
 {
 	Channel *c;
-	int i, n, which, fd;
+	int i, n, which, *fdp;
 	void **arg;
 
 	arg = argv;
 	c = arg[0];
-	fd = (int)(uintptr)arg[1];
+	fdp = arg[1];
 
 	i = 0;
 	for(;;){
 		i = 1-i;	/* toggle */
-		n = read(fd, plumbbuf[i].data, sizeof plumbbuf[i].data);
-if(0) fprint(2, "ext %d\n", n);
+		n = read(*fdp, plumbbuf[i].data, sizeof plumbbuf[i].data);
 		if(n <= 0){
 			fprint(2, "samterm: extern read error: %r\n");
 			threadexits("extern");	/* not a fatal error */
@@ -140,75 +129,19 @@ if(0) fprint(2, "ext %d\n", n);
 	}
 }
 
-void
-extstart(void)
-{
-	char *user, *disp;
-	int fd, flags;
-	static void *arg[2];
-
-	user = getenv("USER");
-	if(user == nil)
-		return;
-	disp = getenv("DISPLAY");
-	if(disp){
-		exname = smprint("/tmp/.sam.%s.%s", user, disp);
-		free(disp);
-	}
-	else
-		exname = smprint("/tmp/.sam.%s", user);
-	free(user);
-	if(exname == nil){
-		fprint(2, "not posting for B: out of memory\n");
-		return;
-	}
-
-	if(mkfifo(exname, 0600) < 0){
-		struct stat st;
-		if(errno != EEXIST || stat(exname, &st) < 0)
-			return;
-		if(!S_ISFIFO(st.st_mode)){
-			removeextern();
-			if(mkfifo(exname, 0600) < 0)
-				return;
-		}
-	}
-
-	fd = open(exname, OREAD|ONONBLOCK);
-	if(fd == -1){
-		removeextern();
-		return;
-	}
-
-	/*
-	 * Turn off no-delay and provide ourselves as a lingering
-	 * writer so as not to get end of file on read.
-	 */
-	flags = fcntl(fd, F_GETFL, 0);
-	if(flags<0 || fcntl(fd, F_SETFL, flags&~O_NONBLOCK)<0
-	||open(exname, OWRITE) < 0){
-		close(fd);
-		removeextern();
-		return;
-	}
-
-	plumbc = chancreate(sizeof(int), 0);
-	chansetname(plumbc, "plumbc");
-	arg[0] = plumbc;
-	arg[1] = (void*)(uintptr)fd;
-	proccreate(extproc, arg, STACK);
-	atexit(removeextern);
-}
-
 int
-plumbformat(Plumbmsg *m, int i)
+plumbformat(int i)
 {
+	Plumbmsg *m;
 	char *addr, *data, *act;
 	int n;
 
 	data = (char*)plumbbuf[i].data;
+	m = plumbunpack(data, plumbbuf[i].n);
+	if(m == nil)
+		return 0;
 	n = m->ndata;
-	if(n == 0 || 2+n+2 >= READBUFSIZE){
+	if(n == 0){
 		plumbfree(m);
 		return 0;
 	}
@@ -241,23 +174,28 @@ plumbformat(Plumbmsg *m, int i)
 }
 
 void
-plumbproc(void *arg)
+plumbproc(void *argv)
 {
-	CFid *fid;
-	int i;
-	Plumbmsg *m;
+	Channel *c;
+	int i, n, which, *fdp;
+	void **arg;
 
-	fid = arg;
+	arg = argv;
+	c = arg[0];
+	fdp = arg[1];
+
 	i = 0;
 	for(;;){
-		m = plumbrecvfid(fid);
-		if(m == nil){
+		i = 1-i;	/* toggle */
+		n = read(*fdp, plumbbuf[i].data, READBUFSIZE);
+		if(n <= 0){
 			fprint(2, "samterm: plumb read error: %r\n");
 			threadexits("plumb");	/* not a fatal error */
 		}
-		if(plumbformat(m, i)){
-			send(plumbc, &i);
-			i = 1-i;	/* toggle */
+		plumbbuf[i].n = n;
+		if(plumbformat(i)){
+			which = i;
+			send(c, &which);
 		}
 	}
 }
@@ -265,19 +203,21 @@ plumbproc(void *arg)
 int
 plumbstart(void)
 {
-	CFid *fid;
+	static int fd;
+	static void *arg[2];
 
 	plumbfd = plumbopen("send", OWRITE|OCEXEC);	/* not open is ok */
-	fid = plumbopenfid("edit", OREAD|OCEXEC);
-	if(fid == nil)
+	fd = plumbopen("edit", OREAD|OCEXEC);
+	if(fd < 0)
 		return -1;
 	plumbc = chancreate(sizeof(int), 0);
-	chansetname(plumbc, "plumbc");
 	if(plumbc == nil){
-		fsclose(fid);
+		close(fd);
 		return -1;
 	}
-	threadcreate(plumbproc, fid, STACK);
+	arg[0] =plumbc;
+	arg[1] = &fd;
+	proccreate(plumbproc, arg, STACK);
 	return 1;
 }
 
@@ -292,10 +232,9 @@ hostproc(void *arg)
 	i = 0;
 	for(;;){
 		i = 1-i;	/* toggle */
-		n = read(hostfd[0], hostbuf[i].data, sizeof hostbuf[i].data);
-if(0) fprint(2, "hostproc %d\n", n);
+		n = read(0, hostbuf[i].data, sizeof hostbuf[i].data);
 		if(n <= 0){
-			if(n == 0){
+			if(n==0){
 				if(exiting)
 					threadexits(nil);
 				werrstr("unexpected eof");
@@ -305,7 +244,6 @@ if(0) fprint(2, "hostproc %d\n", n);
 		}
 		hostbuf[i].n = n;
 		which = i;
-if(0) fprint(2, "hostproc send %d\n", which);
 		send(c, &which);
 	}
 }
@@ -314,6 +252,5 @@ void
 hoststart(void)
 {
 	hostc = chancreate(sizeof(int), 0);
-	chansetname(hostc, "hostc");
 	proccreate(hostproc, hostc, STACK);
 }

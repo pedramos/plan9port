@@ -1,7 +1,8 @@
 /* VERSION 1 introduces plumbing
 	2 increases SNARFSIZE from 4096 to 32000
+	3 adds a triple click
  */
-#define	VERSION	2
+#define	VERSION	3
 
 #define	TBLOCKSIZE 512		  /* largest piece of text sent to terminal */
 #define	DATASIZE  (UTFmax*TBLOCKSIZE+30) /* ... including protocol header stuff */
@@ -34,7 +35,8 @@ typedef enum Tmesg
 	Tack,		/* acknowledge Hack */
 	Texit,		/* exit */
 	Tplumb,		/* send plumb message */
-	TMAX
+	Ttclick,	/* triple click */
+	TMAX,
 }Tmesg;
 /*
  * Messages originating at the host
@@ -67,7 +69,7 @@ typedef enum Hmesg
 	Hack,		/* request acknowledgement */
 	Hexit,
 	Hplumb,		/* return plumb message to terminal - version 1 */
-	HMAX
+	HMAX,
 }Hmesg;
 typedef struct Header{
 	uchar	type;		/* one of the above */
@@ -79,27 +81,27 @@ typedef struct Header{
 /*
  * File transfer protocol schematic, a la Holzmann
  * #define N	6
- *
+ * 
  * chan h = [4] of { mtype };
  * chan t = [4] of { mtype };
- *
+ * 
  * mtype = {	Hgrow, Hdata,
  * 		Hcheck, Hcheck0,
  * 		Trequest, Tcheck,
  * 	};
- *
+ * 
  * active proctype host()
  * {	byte n;
- *
+ * 
  * 	do
  * 	:: n <  N -> n++; t!Hgrow
  * 	:: n == N -> n++; t!Hcheck0
- *
+ * 
  * 	:: h?Trequest -> t!Hdata
  * 	:: h?Tcheck   -> t!Hcheck
  * 	od
  * }
- *
+ * 
  * active proctype term()
  * {
  * 	do
@@ -118,14 +120,14 @@ typedef struct Header{
  * From: gerard@research.bell-labs.com
  * Date: Tue Jul 17 13:47:23 EDT 2001
  * To: rob@research.bell-labs.com
- *
+ * 
  * spin -c 	(or -a) spec
  * pcc -DNP -o pan pan.c
  * pan -l
- *
+ * 
  * proves that there are no non-progress cycles
  * (infinite executions *not* passing through
  * the statement marked with a label starting
  * with the prefix "progress")
- *
+ * 
  */

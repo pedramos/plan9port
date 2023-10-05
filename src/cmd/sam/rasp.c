@@ -3,7 +3,7 @@
  * GROWDATASIZE must be big enough that all errors go out as Hgrowdata's,
  * so they will be scrolled into visibility in the ~~sam~~ window (yuck!).
  */
-#define	GROWDATASIZE	50	/* if size is <= this, send data with grow */
+#define	GROWDATASIZE	50	/* if size is > this, send data with grow */
 
 void	rcut(List*, Posn, Posn);
 int	rterm(List*, Posn);
@@ -283,8 +283,8 @@ rterm(List *r, Posn p1)
 
 	for(p = 0,i = 0; i<r->nused && p+L(i)<=p1; p+=L(i++))
 		;
-	if(i==r->nused)
-		return i > 0 && T(i-1);
+	if(i==r->nused && (i==0 || !T(i-1)))
+		return 0;
 	return T(i);
 }
 

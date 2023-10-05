@@ -35,6 +35,8 @@ struct Cmdtab cmdtab[]={
 	{'>',	0,	0,	0,	0,	aDot,	0,	linex,	plan9_cmd},
 	{'<',	0,	0,	0,	0,	aDot,	0,	linex,	plan9_cmd},
 	{'|',	0,	0,	0,	0,	aDot,	0,	linex,	plan9_cmd},
+	{'^',	0,	0,	0,	0,	aNo,	0,	linex,	plan9_cmd},
+	{'_',	0,	0,	0,	0,	aDot,	0,	linex,	plan9_cmd},
 	{'=',	0,	0,	0,	0,	aDot,	0,	linex,	eq_cmd},
 	{'c'|0x100,0,	0,	0,	0,	aNo,	0,	wordx,	cd_cmd},
 	{0,	0,	0,	0,	0,	0,	0,	0},
@@ -76,7 +78,13 @@ inputc(void)
 
     Again:
 	nbuf = 0;
-	if(downloaded){
+	if(cmdbufpos > cmdbuf.nc && cmdbuf.nc > 0){
+		cmdbufpos = 0;
+		bufreset(&cmdbuf);
+	}
+	if(cmdbufpos < cmdbuf.nc && cmdbuf.nc > 0)
+		bufread(&cmdbuf, cmdbufpos++, &r, 1);
+	else if(downloaded){
 		while(termoutp == terminp){
 			cmdupdate();
 			if(patset)
@@ -199,7 +207,7 @@ termcommand(void)
 	Posn p;
 
 	for(p=cmdpt; p<cmd->b.nc; p++){
-		if(terminp >= &termline[BLOCKSIZE]){
+		if(terminp >= termline+nelem(termline)){
 			cmdpt = cmd->b.nc;
 			error(Etoolong);
 		}
@@ -246,7 +254,7 @@ newcmd(void){
 	Cmd *p;
 
 	p = emalloc(sizeof(Cmd));
-	inslist(&cmdlist, cmdlist.nused, (long)p);
+	inslist(&cmdlist, cmdlist.nused, p);
 	return p;
 }
 
@@ -256,7 +264,7 @@ newaddr(void)
 	Addr *p;
 
 	p = emalloc(sizeof(Addr));
-	inslist(&addrlist, addrlist.nused, (long)p);
+	inslist(&addrlist, addrlist.nused, p);
 	return p;
 }
 
@@ -266,7 +274,7 @@ newre(void)
 	String *p;
 
 	p = emalloc(sizeof(String));
-	inslist(&relist, relist.nused, (long)p);
+	inslist(&relist, relist.nused, p);
 	Strinit(p);
 	return p;
 }
@@ -277,7 +285,7 @@ newstring(void)
 	String *p;
 
 	p = emalloc(sizeof(String));
-	inslist(&stringlist, stringlist.nused, (long)p);
+	inslist(&stringlist, stringlist.nused, p);
 	Strinit(p);
 	return p;
 }
@@ -530,7 +538,6 @@ simpleaddr(void)
 
 	addr.next = 0;
 	addr.left = 0;
-	addr.num = 0;
 	switch(skipbl()){
 	case '#':
 		addr.type = getch();
@@ -559,11 +566,9 @@ simpleaddr(void)
 		case '.':
 		case '$':
 		case '\'':
-			if(addr.type=='"')
-				break;
-			/* fall through */
+			if(addr.type!='"')
 		case '"':
-			error(Eaddress);
+				error(Eaddress);
 			break;
 		case 'l':
 		case '#':

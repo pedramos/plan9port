@@ -169,8 +169,8 @@ newvisibilities(int redraw)
 			break;
 
 		case V(Some, Some):
+			if(l->f.b==0 && redraw)
 		case V(None, Some):
-			if(ov == None || (l->f.b==0 && redraw))
 				flprepare(l);
 			if(l->f.b && redraw){
 				flrefresh(l, l->entire, 0);
@@ -252,49 +252,50 @@ fldelete(Flayer *l, long p0, long p1)
 }
 
 int
-flselect(Flayer *l)
+flselect(Flayer *l, ulong *p)
 {
-	int ret;
+	static int clickcount;
+	static Point clickpt = {-10, -10};
+	int dt, dx, dy;
+
 	if(l->visible!=All)
 		flupfront(l);
+	dt = mousep->msec - l->click;
+	dx = abs(mousep->xy.x - clickpt.x);
+	dy = abs(mousep->xy.y - clickpt.y);
+	*p = frcharofpt(&l->f, mousep->xy) + l->origin;
+
+	l->click = mousep->msec;
+	clickpt = mousep->xy;
+
+	if(dx < 3 && dy < 3 && dt < Clicktime && clickcount < 3)
+		return ++clickcount;
+	clickcount = 0;
+
 	frselect(&l->f, mousectl);
-	ret = 0;
-	if(l->f.p0==l->f.p1){
-		if(mousep->msec-l->click<Clicktime && l->f.p0+l->origin==l->p0){
-			ret = 1;
-			l->click = 0;
-		}else
-			l->click = mousep->msec;
-	}else
-		l->click = 0;
-	l->p0 = l->f.p0+l->origin, l->p1 = l->f.p1+l->origin;
-	return ret;
+	l->p0 = l->f.p0+l->origin;
+	l->p1 = l->f.p1+l->origin;
+	return 0;
 }
 
 void
 flsetselect(Flayer *l, long p0, long p1)
 {
 	ulong fp0, fp1;
-	int ticked;
 
-	l->click = 0;
 	if(l->visible==None || !flprepare(l)){
 		l->p0 = p0, l->p1 = p1;
 		return;
 	}
 	l->p0 = p0, l->p1 = p1;
-	flfp0p1(l, &fp0, &fp1, &ticked);
-	if(fp0==l->f.p0 && fp1==l->f.p1){
-		if(l->f.ticked != ticked)
-			frtick(&l->f, frptofchar(&l->f, fp0), ticked);
+	flfp0p1(l, &fp0, &fp1);
+	if(fp0==l->f.p0 && fp1==l->f.p1)
 		return;
-	}
 
 	if(fp1<=l->f.p0 || fp0>=l->f.p1 || l->f.p0==l->f.p1 || fp0==fp1){
 		/* no overlap or trivial repainting */
 		frdrawsel(&l->f, frptofchar(&l->f, l->f.p0), l->f.p0, l->f.p1, 0);
-		if(fp0 != fp1 || ticked)
-			frdrawsel(&l->f, frptofchar(&l->f, fp0), fp0, fp1, 1);
+		frdrawsel(&l->f, frptofchar(&l->f, fp0), fp0, fp1, 1);
 		goto Refresh;
 	}
 	/* the current selection and the desired selection overlap and are both non-empty */
@@ -321,23 +322,18 @@ flsetselect(Flayer *l, long p0, long p1)
 }
 
 void
-flfp0p1(Flayer *l, ulong *pp0, ulong *pp1, int *ticked)
+flfp0p1(Flayer *l, ulong *pp0, ulong *pp1)
 {
 	long p0 = l->p0-l->origin, p1 = l->p1-l->origin;
 
-	*ticked = p0 == p1;
-	if(p0 < 0){
-		*ticked = 0;
+	if(p0 < 0)
 		p0 = 0;
-	}
 	if(p1 < 0)
 		p1 = 0;
 	if(p0 > l->f.nchars)
 		p0 = l->f.nchars;
-	if(p1 > l->f.nchars){
-		*ticked = 0;
+	if(p1 > l->f.nchars)
 		p1 = l->f.nchars;
-	}
 	*pp0 = p0;
 	*pp1 = p1;
 }
@@ -412,7 +408,6 @@ flprepare(Flayer *l)
 	Frame *f;
 	ulong n;
 	Rune *r;
-	int ticked;
 
 	if(l->visible == None)
 		return 0;
@@ -430,9 +425,8 @@ flprepare(Flayer *l)
 		r = (*l->textfn)(l, n, &n);
 		frinsert(f, r, r+n, (ulong)0);
 		frdrawsel(f, frptofchar(f, f->p0), f->p0, f->p1, 0);
-		flfp0p1(l, &f->p0, &f->p1, &ticked);
-		if(f->p0 != f->p1 || ticked)
-			frdrawsel(f, frptofchar(f, f->p0), f->p0, f->p1, 1);
+		flfp0p1(l, &f->p0, &f->p1);
+		frdrawsel(f, frptofchar(f, f->p0), f->p0, f->p1, 1);
 		l->lastsr = ZR;
 		scrdraw(l, scrtotal(l));
 	}

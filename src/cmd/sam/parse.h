@@ -34,7 +34,8 @@ struct Cmd
 #define	caddr	g.addr
 
 typedef struct Cmdtab Cmdtab;
-struct Cmdtab {
+struct Cmdtab
+{
 	ushort	cmdc;		/* command character */
 	uchar	text;		/* takes a textual argument? */
 	uchar	regexp;		/* takes a regular expression? */
@@ -50,7 +51,7 @@ extern Cmdtab cmdtab[];
 enum Defaddr{	/* default addresses */
 	aNo,
 	aDot,
-	aAll
+	aAll,
 };
 
 int	nl_cmd(File*, Cmd*), a_cmd(File*, Cmd*), b_cmd(File*, Cmd*);

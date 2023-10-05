@@ -3,12 +3,6 @@
 #include <plumb.h>
 #include "errors.h"
 
-#undef waitfor
-#define waitfor samwaitfor
-
-#undef warn
-#define warn samwarn
-
 #undef class
 #define class samclass
 
@@ -25,10 +19,10 @@
 #define	TRUE		1
 #define	FALSE		0
 
-#undef INFINITY	/* Darwin declares this as HUGE_VAL */
+#undef INFINITY
 #define	INFINITY	0x7FFFFFFFL
 #define	INCR		25
-#define	STRSIZE		(2*BLOCKSIZE)
+#define	STRSIZE		(512<<20)
 
 typedef long		Posn;		/* file position or address */
 typedef	ushort		Mod;		/* modification number */
@@ -47,7 +41,7 @@ enum State
 {
 	Clean =		' ',
 	Dirty =		'\'',
-	Unread =	'-'
+	Unread =	'-',
 };
 
 struct Range
@@ -73,7 +67,7 @@ struct String
 	Rune	*s;
 };
 
-struct List	/* code depends on a long being able to hold a pointer */
+struct List
 {
 	int	type;	/* 'p' for pointer, 'P' for Posn */
 	int	nalloc;
@@ -99,7 +93,7 @@ enum
 	Maxblock = 	8*1024,
 
 	BUFSIZE = Maxblock,	/* size from fbufalloc() */
-	RBUFSIZE = BUFSIZE/sizeof(Rune)
+	RBUFSIZE = BUFSIZE/sizeof(Rune),
 };
 
 
@@ -110,16 +104,17 @@ enum
 	Insert		= 'i',
 	Filename	= 'f',
 	Dot		= 'D',
-	Mark		= 'm'
+	Mark		= 'm',
 };
 
 struct Block
 {
-	vlong		addr;	/* disk address in bytes */
-	union {
+	uint		addr;	/* disk address in bytes */
+	union
+	{
 		uint	n;	/* number of used runes in block */
 		Block	*next;	/* pointer to next in free list */
-	} u;
+	};
 };
 
 struct Disk
@@ -156,13 +151,13 @@ void		bufreset(Buffer*);
 
 struct File
 {
-	Buffer 	b;				/* the data */
+	Buffer		b;			/* the data */
 	Buffer		delta;		/* transcript of changes */
 	Buffer		epsilon;	/* inversion of delta for redo */
 	String		name;		/* name of associated file */
 	uvlong		qidpath;	/* of file when read */
 	uint		mtime;		/* of file when read */
-	ulong	dev;		/* of file when read */
+	ulong		dev;		/* of file when read */
 	int		unread;		/* file has not been read from disk */
 
 	long		seq;		/* if seq==0, File acts like Buffer */
@@ -170,12 +165,10 @@ struct File
 	int		mod;		/* file appears modified in menu */
 	char		rescuing;	/* sam exiting; this file unusable */
 
-#if 0
 //	Text		*curtext;	/* most recently used associated text */
 //	Text		**text;		/* list of associated texts */
 //	int		ntext;
 //	int		dumpid;		/* used in dumping zeroxed windows */
-#endif
 
 	Posn		hiposn;		/* highest address touched this Mod */
 	Address		dot;		/* current position */
@@ -191,10 +184,10 @@ struct File
 	long		prevseq;
 	int		prevmod;
 };
-/*File*		fileaddtext(File*, Text*); */
+//File*		fileaddtext(File*, Text*);
 void		fileclose(File*);
 void		filedelete(File*, uint, uint);
-/*void		filedeltext(File*, Text*); */
+//void		filedeltext(File*, Text*);
 void		fileinsert(File*, uint, Rune*, uint);
 uint		fileload(File*, uint, int, int*);
 void		filemark(File*);
@@ -239,7 +232,6 @@ int	Read(int, void*, int);
 void	Seek(int, long, int);
 int	plan9(File*, int, String*, int);
 int	Write(int, void*, int);
-void	Close(int);
 int	bexecute(File*, Posn);
 void	cd(String*);
 void	closefiles(File*, String*);
@@ -252,7 +244,7 @@ File	*current(File*);
 void	delete(File*);
 void	delfile(File*);
 void	dellist(List*, int);
-void	doubleclick(File*, Posn);
+void	stretchsel(File*, Posn, int);
 void	dprint(char*, ...);
 void	edit(File*, int);
 void	*emalloc(ulong);
@@ -272,6 +264,12 @@ int	getname(File*, String*, int);
 long	getnum(int);
 void	hiccough(char*);
 void	inslist(List*, int, ...);
+#undef isalnum
+#define isalnum samisalnum
+int     isalnum(int);
+#undef isspace
+#define isspace samisspace
+int     isspace (Rune);
 Address	lineaddr(Posn, Address, int);
 List	*listalloc(int);
 void	listfree(List*);
@@ -283,7 +281,6 @@ void	move(File*, Address);
 void	moveto(File*, Range);
 File	*newfile(void);
 void	nextmatch(File*, String*, Posn, int);
-int	newtmp(int);
 void	notifyf(void*, char*);
 void	panic(char*);
 void	printposn(File*, int);
@@ -333,7 +330,8 @@ void	trytoclose(File*);
 void	trytoquit(void);
 int	undo(int);
 void	update(void);
-int	waitfor(int);
+#undef waitfor
+char	*waitfor(int);
 void	warn(Warn);
 void	warn_s(Warn, char*);
 void	warn_SS(Warn, String*, String*);
@@ -354,6 +352,7 @@ extern char	SH[];
 extern char	SHPATH[];
 extern char	RX[];
 extern char	RXPATH[];
+extern char	SAMSAVECMD[];
 
 /*
  * acme globals
@@ -371,6 +370,8 @@ extern int	quitok;
 extern Address	addr;
 extern Buffer	snarfbuf;
 extern Buffer	plan9buf;
+extern Buffer	cmdbuf;
+extern int	cmdbufpos;
 extern List	file;
 extern List	tempfile;
 extern File	*cmd;
@@ -408,3 +409,5 @@ void	outTsl(Hmesg, int, long);
 void	outTsv(Hmesg, int, vlong);
 void	outflush(void);
 int needoutflush(void);
+
+Posn	nlcount(File *f, Posn p0, Posn p1);

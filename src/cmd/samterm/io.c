@@ -9,7 +9,6 @@
 #include "flayer.h"
 #include "samterm.h"
 
-int	protodebug;
 int	cursorfd;
 int	plumbfd = -1;
 int	input;
@@ -33,27 +32,19 @@ void
 initio(void)
 {
 	threadsetname("main");
-	if(protodebug) print("mouse\n");
 	mousectl = initmouse(nil, display->image);
 	if(mousectl == nil){
 		fprint(2, "samterm: mouse init failed: %r\n");
 		threadexitsall("mouse");
 	}
 	mousep = &mousectl->m;
-	if(protodebug) print("kbd\n");
 	keyboardctl = initkeyboard(nil);
 	if(keyboardctl == nil){
 		fprint(2, "samterm: keyboard init failed: %r\n");
 		threadexitsall("kbd");
 	}
-	if(protodebug) print("hoststart\n");
 	hoststart();
-	if(protodebug) print("plumbstart\n");
-	if(plumbstart() < 0){
-		if(protodebug) print("extstart\n");
-		extstart();
-	}
-	if(protodebug) print("initio done\n");
+	plumbstart();
 }
 
 void
@@ -85,7 +76,6 @@ button(int but)
 void
 externload(int i)
 {
-	drawtopwindow();
 	plumbbase = malloc(plumbbuf[i].n);
 	if(plumbbase == 0)
 		return;
@@ -104,6 +94,7 @@ waitforio(void)
 	ulong type;
 
 again:
+
 	alts[RPlumb].c = plumbc;
 	alts[RPlumb].v = &i;
 	alts[RPlumb].op = CHANRCV;
@@ -134,22 +125,15 @@ again:
 	if(block & (1<<RResize))
 		alts[RResize].op = CHANNOP;
 
-	if(protodebug) print("waitforio %c%c%c%c%c\n",
-		"h-"[alts[RHost].op == CHANNOP],
-		"k-"[alts[RKeyboard].op == CHANNOP],
-		"m-"[alts[RMouse].op == CHANNOP],
-		"p-"[alts[RPlumb].op == CHANNOP],
-		"R-"[alts[RResize].op == CHANNOP]);
-
 	alts[NRes].op = CHANEND;
 
 	if(got & ~block)
 		return got & ~block;
-	flushimage(display, 1);
+	if(display->bufp > display->buf)
+		flushimage(display, 1);
 	type = alt(alts);
 	switch(type){
 	case RHost:
-		if(0) print("hostalt recv %d %d\n", i, hostbuf[i].n);
 		hostp = hostbuf[i].data;
 		hoststop = hostbuf[i].data + hostbuf[i].n;
 		block = 0;
@@ -170,7 +154,7 @@ again:
 		goto again;
 	}
 	got |= 1<<type;
-	return got;
+	return got; 
 }
 
 int

@@ -1,11 +1,11 @@
 typedef enum Vis{
 	None=0,
 	Some,
-	All
+	All,
 }Vis;
 
 enum{
-	Clicktime=1000		/* one second */
+	Clicktime=500,		/* milliseconds */
 };
 
 typedef struct Flayer Flayer;
@@ -28,7 +28,7 @@ struct Flayer
 void	flborder(Flayer*, int);
 void	flclose(Flayer*);
 void	fldelete(Flayer*, long, long);
-void	flfp0p1(Flayer*, ulong*, ulong*, int*);
+void	flfp0p1(Flayer*, ulong*, ulong*);
 void	flinit(Flayer*, Rectangle, Font*, Image**);
 void	flinsert(Flayer*, Rune*, Rune*, long);
 void	flnew(Flayer*, Rune *(*fn)(Flayer*, long, ulong*), int, void*);
@@ -36,12 +36,12 @@ int	flprepare(Flayer*);
 Rectangle flrect(Flayer*, Rectangle);
 void	flrefresh(Flayer*, Rectangle, int);
 void	flresize(Rectangle);
-int	flselect(Flayer*);
+int	flselect(Flayer*, ulong*);
 void	flsetselect(Flayer*, long, long);
 void	flstart(Rectangle);
 void	flupfront(Flayer*);
 Flayer	*flwhich(Point);
-int	flscale(Flayer*, int);
+int     flscale(Flayer*, int);
 
 #define	FLMARGIN(l)	flscale(l, 4)
 #define	FLSCROLLWID(l)	flscale(l, 12)

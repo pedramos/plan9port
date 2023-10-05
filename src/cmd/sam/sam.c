@@ -29,24 +29,16 @@ File	*lastfile;
 Disk	*disk;
 long	seq;
 
-char *winsize;
-
 Rune	baddir[] = { '<', 'b', 'a', 'd', 'd', 'i', 'r', '>', '\n'};
 
 void	usage(void);
 
-extern int notify(void(*)(void*,char*));
-
-void
-main(int _argc, char **_argv)
+void main(int argc, char *argv[])
 {
-	volatile int i, argc;
-	char **volatile argv;
+	int i;
 	String *t;
 	char *termargs[10], **ap;
-
-	argc = _argc;
-	argv = _argv;
+	
 	ap = termargs;
 	*ap++ = "samterm";
 	ARGBEGIN{
@@ -71,14 +63,17 @@ main(int _argc, char **_argv)
 	/* options for samterm */
 	case 'a':
 		*ap++ = "-a";
+		if(ap >= termargs+nelem(termargs))
+			usage();
 		break;
-	case 'W':
-		*ap++ = "-W";
-		*ap++ = EARGF(usage());
+	case 'i':
+		*ap++ = "-i";
+		if(ap >= termargs+nelem(termargs))
+			usage();
 		break;
 	}ARGEND
 	*ap = nil;
-
+	
 	Strinit(&cmdstr);
 	Strinit0(&lastpat);
 	Strinit0(&lastregexp);
@@ -91,7 +86,7 @@ main(int _argc, char **_argv)
 	if(home == 0)
 		home = "/";
 	if(!dflag)
-		startup(machine, Rflag, termargs, (char**)argv);
+		startup(machine, Rflag, termargs, argv);
 	notify(notifyf);
 	getcurwd();
 	if(argc>0){
@@ -119,7 +114,7 @@ main(int _argc, char **_argv)
 void
 usage(void)
 {
-	dprint("usage: sam [-d] [-t samterm] [-s sam name] [-r machine] [file ...]\n");
+	dprint("usage: sam [-d] [-t samterm] [-s sam name] -r machine\n");
 	exits("usage");
 }
 
@@ -523,29 +518,20 @@ cd(String *str)
 	if(chdir(s))
 		syserror("chdir");
 	fd = open("/dev/wdir", OWRITE);
-	if(fd > 0)
+	if(fd >= 0)
 		write(fd, s, strlen(s));
 	dprint("!\n");
 	Strinit(&owd);
 	Strduplstr(&owd, &curwd);
 	getcurwd();
 	settempfile();
-	/*
-	 * Two passes so that if we have open
-	 * /a/foo.c and /b/foo.c and cd from /b to /a,
-	 * we don't ever have two foo.c simultaneously.
-	 */
 	for(i=0; i<tempfile.nused; i++){
 		f = tempfile.filepptr[i];
 		if(f!=cmd && f->name.s[0]!='/' && f->name.s[0]!=0){
 			Strinsert(&f->name, &owd, (Posn)0);
 			fixname(&f->name);
 			sortname(f);
-		}
-	}
-	for(i=0; i<tempfile.nused; i++){
-		f = tempfile.filepptr[i];
-		if(f != cmd && Strispre(&curwd, &f->name)){
+		}else if(f != cmd && Strispre(&curwd, &f->name)){
 			fixname(&f->name);
 			sortname(f);
 		}
@@ -704,11 +690,27 @@ nlcount(File *f, Posn p0, Posn p1)
 }
 
 void
-printposn(File *f, int charsonly)
+printposn(File *f, int chars)
 {
 	Posn l1, l2;
+	char *s;
 
-	if(!charsonly){
+	if(f->name.s[0]){
+		if(f->name.s[0]!='/'){
+			getcurwd();
+			s = Strtoc(&curwd);
+			dprint("%s", s);
+			free(s);
+		}
+		s = Strtoc(&f->name);
+		dprint("%s:", s);
+		free(s);
+	}
+	if(chars){
+		dprint("#%lud", addr.r.p1);
+		if(addr.r.p2 != addr.r.p1)
+			dprint(",#%lud", addr.r.p2);
+	}else{
 		l1 = 1+nlcount(f, (Posn)0, addr.r.p1);
 		l2 = l1+nlcount(f, addr.r.p1, addr.r.p2);
 		/* check if addr ends with '\n' */
@@ -717,11 +719,7 @@ printposn(File *f, int charsonly)
 		dprint("%lud", l1);
 		if(l2 != l1)
 			dprint(",%lud", l2);
-		dprint("; ");
 	}
-	dprint("#%lud", addr.r.p1);
-	if(addr.r.p2 != addr.r.p1)
-		dprint(",#%lud", addr.r.p2);
 	dprint("\n");
 }
 

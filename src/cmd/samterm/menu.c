@@ -2,8 +2,8 @@
 #include <libc.h>
 #include <draw.h>
 #include <thread.h>
-#include <mouse.h>
 #include <cursor.h>
+#include <mouse.h>
 #include <keyboard.h>
 #include <frame.h>
 #include "flayer.h"
@@ -59,7 +59,7 @@ char	*menu3str[] = {
 	"zerox",
 	"resize",
 	"close",
-	"write"
+	"write",
 };
 
 Menu	menu2 =	{0, genmenu2};
@@ -128,8 +128,7 @@ menu3hit(void)
 	Text *t;
 
 	mw = -1;
-	m = menuhit(3, mousectl, &menu3, nil);
-	switch(m){
+	switch(m = menuhit(3, mousectl, &menu3, nil)){
 	case -1:
 		break;
 

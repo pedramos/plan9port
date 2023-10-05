@@ -1,8 +1,7 @@
-<$PLAN9/src/mkhdr
+</$PLAN9/src/mkhdr
 
 TARG=samterm
-OFILES=\
-	main.$O\
+OFILES=main.$O\
 	icons.$O\
 	menu.$O\
 	mesg.$O\
@@ -12,14 +11,25 @@ OFILES=\
 	io.$O\
 	plan9.$O\
 
-HFILES=\
-	samterm.h\
+HFILES=samterm.h\
 	flayer.h\
 	../sam/sam.h\
 	../sam/mesg.h\
 	$PLAN9/include/frame.h\
-	$PLAN9/include/draw.h\
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
 
 CFLAGS=$CFLAGS -I../sam
 
 <$PLAN9/src/mkone
+
+CFLAGS=-I../sam $CFLAGS
+
+mesg.$O:	../sam/mesg.h
+
+syms:V:
+	$CC -a $CFLAGS main.c		 > syms
+	for(i in *.c) $CC -aa $CFLAGS $i >> syms

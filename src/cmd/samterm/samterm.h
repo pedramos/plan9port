@@ -7,7 +7,9 @@
 
 enum{
 	Up,
-	Down
+	Down,
+
+	Kbel=0x7,
 };
 
 typedef struct Text	Text;
@@ -53,10 +55,8 @@ enum Resource
 	RMouse,
 	RPlumb,
 	RResize,
-	NRes
+	NRes,
 };
-
-extern int	protodebug;
 
 extern Text	**text;
 extern uchar	**name;
@@ -86,11 +86,11 @@ extern Channel *plumbc;
 extern Channel *hostc;
 extern int	hversion;
 extern int	plumbfd;
-extern int	hostfd[2];
 extern int	exiting;
 extern int	autoindent;
+extern int	spacesindent;
 
-#define gettext sam_gettext	/* stupid gcc built-in functions */
+#define gettext sam_gettext     /* stupid gcc built-in functions */
 Rune	*gettext(Flayer*, long, ulong*);
 void	*alloc(ulong n);
 
@@ -104,7 +104,6 @@ void	startnewfile(int, Text*);
 void	getmouse(void);
 void	mouseunblock(void);
 void	kbdblock(void);
-void	extstart(void);
 void	hoststart(void);
 int	plumbstart(void);
 int	button(int but);

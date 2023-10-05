@@ -1,4 +1,5 @@
 #include "sam.h"
+
 Header	h;
 uchar	indata[DATASIZE];
 uchar	outdata[2*DATASIZE+3];	/* room for overflow message */
@@ -53,7 +54,7 @@ char *hname[] = {
 	[Hsnarflen]	"Hsnarflen",
 	[Hack]		"Hack",
 	[Hexit]		"Hexit",
-	[Hplumb]		"Hplumb"
+	[Hplumb]	"Hplumb",
 };
 
 char *tname[] = {
@@ -75,21 +76,23 @@ char *tname[] = {
 	[Tsearch]	"Tsearch",
 	[Tsend]		"Tsend",
 	[Tdclick]	"Tdclick",
+	[Ttclick]	"Ttclick",
 	[Tstartsnarf]	"Tstartsnarf",
 	[Tsetsnarf]	"Tsetsnarf",
 	[Tack]		"Tack",
 	[Texit]		"Texit",
-	[Tplumb]		"Tplumb"
+	[Tplumb]	"Tplumb",
 };
 
 void
 journal(int out, char *s)
 {
-	static int fd = 0;
+	static int fd = -1;
 
-	if(fd <= 0)
+	if(fd < 0)
 		fd = create("/tmp/sam.out", 1, 0666L);
-	fprint(fd, "%s%s\n", out? "out: " : "in:  ", s);
+	if(fd >= 0)
+		fprint(fd, "%s%s\n", out? "out: " : "in:  ", s);
 }
 
 void
@@ -97,7 +100,7 @@ journaln(int out, long n)
 {
 	char buf[32];
 
-	snprint(buf, sizeof buf, "%ld", n);
+	snprint(buf, sizeof(buf), "%ld", n);
 	journal(out, buf);
 }
 
@@ -106,13 +109,13 @@ journalv(int out, vlong v)
 {
 	char buf[32];
 
-	snprint(buf, sizeof buf, "%lld", v);
+	sprint(buf, sizeof(buf), "%lld", v);
 	journal(out, buf);
 }
-
 #else
 #define	journal(a, b)
 #define journaln(a, b)
+#define journalv(a, b)
 #endif
 
 int
@@ -223,7 +226,7 @@ inmesg(Tmesg type)
 
 	case Tstartcmdfile:
 		v = invlong();		/* for 64-bit pointers */
-		journaln(0, v);
+		journalv(0, v);
 		Strdupl(&genstr, samname);
 		cmd = newfile();
 		cmd->unread = 0;
@@ -456,9 +459,10 @@ inmesg(Tmesg type)
 		break;
 
 	case Tdclick:
+	case Ttclick:
 		f = whichfile(inshort());
 		p1 = inlong();
-		doubleclick(f, p1);
+		stretchsel(f, p1, type == Ttclick);
 		f->tdot.p1 = f->tdot.p2 = p1;
 		telldot(f);
 		outTs(Hunlockfile, f->tag);
@@ -615,7 +619,7 @@ vlong
 invlong(void)
 {
 	vlong v;
-
+	
 	v = (inp[7]<<24) | (inp[6]<<16) | (inp[5]<<8) | inp[4];
 	v = (v<<16) | (inp[3]<<8) | inp[2];
 	v = (v<<16) | (inp[1]<<8) | inp[0];
@@ -755,7 +759,7 @@ outTsv(Hmesg type, int s, vlong v)
 	outstart(type);
 	outshort(s);
 	outvlong(v);
-	journaln(1, v);
+	journalv(1, v);
 	outsend();
 }
 
@@ -778,7 +782,7 @@ void
 outshort(int s)
 {
 	*outp++ = s;
-	*outp++ = s>>8;
+	*outp++ = s>>8; 
 }
 
 void

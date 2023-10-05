@@ -2,7 +2,6 @@
 
 static	Block	*blist;
 
-#if 0
 static int
 tempdisk(void)
 {
@@ -20,12 +19,9 @@ tempdisk(void)
 	}
 	return -1;
 }
-#else
-extern int tempdisk(void);
-#endif
 
 Disk*
-diskinit(void)
+diskinit()
 {
 	Disk *d;
 
@@ -64,23 +60,23 @@ disknewblock(Disk *d, uint n)
 	size = ntosize(n, &i);
 	b = d->free[i];
 	if(b)
-		d->free[i] = b->u.next;
+		d->free[i] = b->next;
 	else{
 		/* allocate in chunks to reduce malloc overhead */
 		if(blist == nil){
 			blist = emalloc(100*sizeof(Block));
 			for(j=0; j<100-1; j++)
-				blist[j].u.next = &blist[j+1];
+				blist[j].next = &blist[j+1];
 		}
 		b = blist;
-		blist = b->u.next;
+		blist = b->next;
 		b->addr = d->addr;
 		if(d->addr+size < d->addr){
 			panic("temp file overflow");
 		}
 		d->addr += size;
 	}
-	b->u.n = n;
+	b->n = n;
 	return b;
 }
 
@@ -89,8 +85,8 @@ diskrelease(Disk *d, Block *b)
 {
 	uint i;
 
-	ntosize(b->u.n, &i);
-	b->u.next = d->free[i];
+	ntosize(b->n, &i);
+	b->next = d->free[i];
 	d->free[i] = b;
 }
 
@@ -101,7 +97,7 @@ diskwrite(Disk *d, Block **bp, Rune *r, uint n)
 	Block *b;
 
 	b = *bp;
-	size = ntosize(b->u.n, nil);
+	size = ntosize(b->n, nil);
 	nsize = ntosize(n, nil);
 	if(size != nsize){
 		diskrelease(d, b);
@@ -110,16 +106,16 @@ diskwrite(Disk *d, Block **bp, Rune *r, uint n)
 	}
 	if(pwrite(d->fd, r, n*sizeof(Rune), b->addr) != n*sizeof(Rune))
 		panic("write error to temp file");
-	b->u.n = n;
+	b->n = n;
 }
 
 void
 diskread(Disk *d, Block *b, Rune *r, uint n)
 {
-	if(n > b->u.n)
+	if(n > b->n)
 		panic("internal error: diskread");
 
-	ntosize(b->u.n, nil);	/* called only for sanity check on Maxblock */
+	ntosize(b->n, nil);	/* called only for sanity check on Maxblock */
 	if(pread(d->fd, r, n*sizeof(Rune), b->addr) != n*sizeof(Rune))
 		panic("read error from temp file");
 }

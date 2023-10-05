@@ -2,8 +2,8 @@
 #include <libc.h>
 #include <draw.h>
 #include <thread.h>
-#include <mouse.h>
 #include <cursor.h>
+#include <mouse.h>
 #include <keyboard.h>
 #include <frame.h>
 #include <plumb.h>
@@ -16,7 +16,6 @@ uchar	indata[DATASIZE+1];	/* room for NUL */
 uchar	outdata[DATASIZE];
 short	outcount;
 int	hversion;
-int	hostfd[2];
 int	exiting;
 
 void	inmesg(Hmesg, int);
@@ -30,7 +29,6 @@ void	hplumb(int);
 void	clrlock(void);
 int	snarfswap(char*, int, char**);
 
-
 void
 rcv(void)
 {
@@ -40,9 +38,7 @@ rcv(void)
 	static int i = 0;
 	static int errs = 0;
 
-	if(protodebug) print("rcv in\n");
-	while((c=rcvchar()) != -1){
-		if(protodebug) print(".");
+	while((c=rcvchar()) != -1)
 		switch(state){
 		case 0:
 			h.type = c;
@@ -83,10 +79,6 @@ rcv(void)
 			}
 			break;
 		}
-		if(protodebug) print(":");
-	}
-
-	if(protodebug) print("rcv out\n");
 }
 
 Text *
@@ -331,7 +323,7 @@ clrlock(void)
 void
 startfile(Text *t)
 {
-	outTsv(Tstartfile, t->tag, (vlong)(uintptr)t);		/* for 64-bit pointers */
+	outTsv(Tstartfile, t->tag, (vlong)t);	/* for 64-bit pointers */
 	setlock();
 }
 
@@ -339,7 +331,7 @@ void
 startnewfile(int type, Text *t)
 {
 	t->tag = Untagged;
-	outTv(type, (vlong)(uintptr)t);				/* for 64-bit pointers */
+	outTv(type, (vlong)t);			/* for 64-bit pointers */
 }
 
 int
@@ -437,7 +429,7 @@ outTv(Tmesg type, vlong v1)
 void
 outTslS(Tmesg type, int s1, long l1, Rune *s)
 {
-	char buf[DATASIZE*3+1];
+	char buf[DATASIZE*UTFmax+1];
 	char *c;
 
 	outstart(type);
@@ -472,7 +464,7 @@ void
 outcopy(int count, uchar *data)
 {
 	while(count--)
-		outdata[HSIZE+outcount++] = *data++;
+		outdata[HSIZE+outcount++] = *data++;	
 }
 
 void
@@ -518,7 +510,7 @@ outsend(void)
 		panic("outcount>sizeof outdata");
 	outdata[1]=outcount;
 	outdata[2]=outcount>>8;
-	if(write(hostfd[1], (char *)outdata, outcount+HSIZE)!=outcount+HSIZE)
+	if(write(1, (char *)outdata, outcount+HSIZE)!=outcount+HSIZE)
 		panic("write error");
 }
 
@@ -666,7 +658,7 @@ hsetsnarf(int nc)
 		}
 		snarflen = n;
 		outTs(Tsetsnarf, n);
-		if(n>0 && write(hostfd[1], s1, n)!=n)
+		if(n>0 && write(1, s1, n)!=n)
 			panic("snarf write error");
 		free(s1);
 	}else
@@ -685,7 +677,7 @@ hplumb(int nc)
 	s = alloc(nc);
 	for(i=0; i<nc; i++)
 		s[i] = getch();
-	if(plumbfd > 0){
+	if(plumbfd >= 0){
 		m = plumbunpack(s, nc);
 		if(m != 0)
 			plumbsend(plumbfd, m);

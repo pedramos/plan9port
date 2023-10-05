@@ -27,12 +27,6 @@ enum
 	FALSE		= 0
 };
 
-enum
-{
-	Kscrolloneup = KF|0x20,
-	Kscrollonedown = KF|0x21
-};
-
 enum	/* control messages */
 {
 	Wakeup,
