@@ -24,6 +24,7 @@ if(! ~ $#cflag 0){
 }
 if(flag i){
 	if(~ $termprog 9term || ~ $termprog win){
+		prompt=('% ' '	')
 		fn cd {
 			# builtin cd $1 && flag i && awd
 			# is not sufficient when running in a subshell
