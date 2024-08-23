@@ -464,6 +464,9 @@ stdinproc(void *v)
 				/* just send it back */
 				if(e.flag & 2)
 					gete(efd, &e2);
+				// fallthrough
+			case 'r':
+			case 'R':
 				fsfidprint(efd, "%c%c%d %d\n", e.c1, e.c2, e.q0, e.q1);
 				break;
 
