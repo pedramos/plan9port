@@ -653,6 +653,14 @@ xfidctlwrite(Xfid *x, Window *w)
 			qunlock(&w->ctllock);
 			m = 6;
 		}else
+		if(strncmp(p, "indent", 6) == 0){	/* set autoindent */
+			w->autoindent = TRUE;
+			m = 6;
+		}else
+		if(strncmp(p, "noindent", 8) == 0){	/* unset autoindent */
+			w->autoindent = FALSE;
+			m = 8;
+		}else
 		if(strncmp(p, "clean", 5) == 0){	/* mark window 'clean', seq=0 */
 			t = &w->body;
 			t->eq0 = ~0;

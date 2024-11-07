@@ -209,6 +209,8 @@ threadmain(int argc, char **argv)
 	getwd(buf1, sizeof buf1);
 	sprint(buf, "name %s/-%s\n0\n", buf1, name);
 	fswrite(ctlfd, buf, strlen(buf));
+	sprint(buf, "noindent");
+	fswrite(ctlfd, buf, strlen(buf));
 	sprint(buf, "dumpdir %s/\n", buf1);
 	fswrite(ctlfd, buf, strlen(buf));
 	sprint(buf, "dump %s\n", dump);
